@@ -1,6 +1,8 @@
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
+import pickle
 
 __all__ = [
     'OnFireDataLoader',
@@ -38,9 +40,10 @@ class OnFireDataLoader(DataLoader):
 
 class OnFireDataset(Dataset):
     def __init__(self, data):
-        self.data = data
+        self.data = np.array([pickle.dumps(x) for x in data], dtype=bytes)
+
     def __getitem__(self, idx):
-        return self.data[idx]
+        return pickle.loads(self.data[idx])
 
     def __len__(self):
         return len(self.data)
