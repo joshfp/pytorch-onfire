@@ -17,7 +17,7 @@ class Projector(TransformerMixin, BaseEstimator):
     def __init__(self, keys):
         self.keys = keys if isinstance(keys, list) else [keys]
 
-    def get(self, x):
+    def __get(self, x):
         for key in self.keys:
             x = x.get(key)
         return x
@@ -26,7 +26,7 @@ class Projector(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        return [self.get(x) for x in X]
+        return [self.__get(x) for x in X]
 
 
 class LabelEncoder(TransformerMixin, BaseEstimator):
