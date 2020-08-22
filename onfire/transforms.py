@@ -9,7 +9,8 @@ __all__ = [
     'LabelEncoder',
     'BasicTokenizer',
     'TokensEncoder',
-    'ToTensor'
+    'ToTensor',
+    'MultiLabelEncoder',
 ]
 
 class Projector(TransformerMixin, BaseEstimator):
@@ -37,17 +38,17 @@ class LabelEncoder(TransformerMixin, BaseEstimator):
         self.is_target = is_target
 
     def fit(self, X, y=None):
-        self.vocab = [x for x in sorted(set(X)) if x is not None]
+        self.vocab = sorted([x for x in set(X) if x is not None])
         if not self.is_target:
             self.vocab.insert(0, self.UnknownLabel())
         self.category2code = {x:i for i,x in enumerate(self.vocab)}
         return self
 
-    def get_category_code(self, x):
+    def __get_category_code(self, x):
         return self.category2code.get(x) if self.is_target else self.category2code.get(x, 0)
 
     def transform(self, X):
-        return np.array([self.get_category_code(x) for x in X], dtype=np.int)
+        return np.array([self.__get_category_code(x) for x in X], dtype=np.int)
 
 
 class BasicTokenizer(TransformerMixin, BaseEstimator):
@@ -55,7 +56,7 @@ class BasicTokenizer(TransformerMixin, BaseEstimator):
         self.lower = lower
         self.map_to_ascii = map_to_ascii
 
-    def tokenize(self, text):
+    def __preprocess(self, text):
         if text is None:
             text = ""
         elif not isinstance(text, str):
@@ -65,6 +66,9 @@ class BasicTokenizer(TransformerMixin, BaseEstimator):
             text = unidecode(text)
         if self.lower:
             text = text.lower()
+        return text
+
+    def __tokenize(self, text):
         res = []
         for token in text.split():
             while token and not token[-1].isalnum():
@@ -79,7 +83,9 @@ class BasicTokenizer(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        return [self.tokenize(x) for x in X]
+        X = [self.__preprocess(x) for x in X]
+        transformed = {hash(x): self.__tokenize(x) for x in set(X)}
+        return [transformed[hash(x)] for x in X]
 
 
 class TokensEncoder(TransformerMixin, BaseEstimator):
@@ -127,3 +133,12 @@ class ToTensor(TransformerMixin, BaseEstimator):
 
     def transform(self, X):
         return torch.tensor(X, dtype=self.dtype)
+
+
+class MultiLabelEncoder(TransformerMixin, BaseEstimator):
+    def fit(self, X, y=None):
+        self.vocab = sorted(set([label for row in X for label in row]))
+        return self
+
+    def transform(self, X):
+        return [[(_class in row) for _class in self.vocab] for row in X]

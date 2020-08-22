@@ -1,7 +1,7 @@
 from functools import wraps
 
 __all__ = [
-    'mappify'
+    'mappify',
 ]
 
 def mappify(func):
