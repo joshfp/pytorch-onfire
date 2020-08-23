@@ -70,7 +70,7 @@ class CategoricalFeature(BaseFeature):
 
 class TextFeature(BaseFeature):
     def __init__(self, key=None, preprocessor=None, max_len=50, max_vocab=50000,
-                 min_freq=3, emb_dim=100, tokenizer=None,embedder_cls=None,
+                 min_freq=3, emb_dim=100, tokenizer=None, embedder_cls=None,
                  embedder_vocab_size_argname='vocab_size', **kwargs):
         self.max_len = max_len
         self.max_vocab = max_vocab
@@ -109,9 +109,9 @@ class ContinuousFeature(BaseFeature):
     def __init__(self, key=None, preprocessor=None, imputer=None, after_imputer=None, scaler=None):
         self.key = key
         self.preprocessor = preprocessor
-        self.imputer = (imputer or SimpleImputer()) if (imputer!=False) else None
+        self.imputer = (imputer or SimpleImputer()) if imputer!=False else None
         self.after_imputer = after_imputer
-        self.scaler = (scaler or StandardScaler()) if (scaler!=False) else None
+        self.scaler = (scaler or StandardScaler()) if scaler!=False else None
 
         tfms = []
         tfms.append(FunctionTransformer(self.__to_2d_array))
