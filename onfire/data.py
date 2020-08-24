@@ -10,7 +10,7 @@ __all__ = [
 ]
 
 class OnFireDataLoader(DataLoader):
-    def __init__(self, data, tfms, batch_size, shuffle=False, num_workers=-1,
+    def __init__(self, data, tfms, batch_size, shuffle=False, num_workers=0,
                  sampler=None, pin_memory=None, drop_last=False, **kwargs):
         self.ds = OnFireDataset(data)
         self.tfms = tfms
@@ -26,10 +26,12 @@ class OnFireDataLoader(DataLoader):
 
 class OnFireDataset(Dataset):
     def __init__(self, data):
-        self.data = np.array([pickle.dumps(x) for x in data], dtype=bytes)
+        #self.data = np.array([pickle.dumps(x) for x in data], dtype=bytes)
+        self.data = data
 
     def __getitem__(self, idx):
-        return pickle.loads(self.data[idx])
+        #return pickle.loads(self.data[idx])
+        return self.data[idx]
 
     def __len__(self):
         return len(self.data)

@@ -11,6 +11,7 @@ __all__ = [
     'TokensEncoder',
     'ToTensor',
     'MultiLabelEncoder',
+    'To2DArray',
 ]
 
 class Projector(TransformerMixin, BaseEstimator):
@@ -142,3 +143,14 @@ class MultiLabelEncoder(TransformerMixin, BaseEstimator):
 
     def transform(self, X):
         return [[(_class in row) for _class in self.vocab] for row in X]
+
+
+class To2DArray(TransformerMixin, BaseEstimator):
+    def __init__(self, dtype=None):
+        self.dtype = dtype
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return np.array(X, dtype=self.dtype).reshape(len(X), -1)

@@ -3,12 +3,12 @@ import numpy as np
 from collections import OrderedDict
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import FunctionTransformer, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from abc import ABC, abstractmethod
 
 from .transforms import (Projector, LabelEncoder, BasicTokenizer, TokensEncoder,
-    ToTensor, MultiLabelEncoder)
+    ToTensor, MultiLabelEncoder, To2DArray)
 from .models import ConcatEmbeddings, DummyModel, MeanOfEmbeddings
 
 __all__ = [
@@ -44,6 +44,12 @@ class BaseFeature(BaseField):
         pass
 
 
+class BaseTarget(BaseField):
+    @abstractmethod
+    def get_activation(self):
+        pass
+
+
 class CategoricalFeature(BaseFeature):
     def __init__(self, key=None, preprocessor=None, emb_dim=None):
         self.key = key
@@ -71,7 +77,7 @@ class CategoricalFeature(BaseFeature):
 class TextFeature(BaseFeature):
     def __init__(self, key=None, preprocessor=None, max_len=50, max_vocab=50000,
                  min_freq=3, emb_dim=100, tokenizer=None, embedder_cls=None,
-                 embedder_vocab_size_argname='vocab_size', **kwargs):
+                 embedder_vocab_size_param='vocab_size', embedder_args=None):
         self.max_len = max_len
         self.max_vocab = max_vocab
         self.key = key
@@ -81,10 +87,10 @@ class TextFeature(BaseFeature):
         self.emb_dim = emb_dim
         self.token_encoder = TokensEncoder(self.max_len, self.max_vocab, self.min_freq)
         self.embedder_cls = embedder_cls or MeanOfEmbeddings
-        self.embedder_vocab_size_argname = embedder_vocab_size_argname
-        self.kwargs = kwargs or {}
+        self.embedder_vocab_size_param = embedder_vocab_size_param
+        self.embedder_args = embedder_args or {}
         if self.embedder_cls == MeanOfEmbeddings:
-            self.kwargs['emb_dim'] = self.emb_dim
+            self.embedder_args['emb_dim'] = self.emb_dim
 
         tfms = [self.tokenizer, self.token_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
@@ -92,11 +98,11 @@ class TextFeature(BaseFeature):
     def fit(self, X, y=None):
         self.pipe.fit(X)
         self.vocab = self.token_encoder.vocab
-        self.kwargs[self.embedder_vocab_size_argname] = len(self.vocab)
+        self.embedder_args[self.embedder_vocab_size_param] = len(self.vocab)
         return self
 
     def build_embedder(self):
-        self.embedder = self.embedder_cls(**self.kwargs)
+        self.embedder = self.embedder_cls(**self.embedder_args)
         sample_input = torch.randint(len(self.vocab), (2, self.max_len))
         self.emb_dim = self.embedder(sample_input).shape[1]
         return self.embedder
@@ -114,7 +120,7 @@ class ContinuousFeature(BaseFeature):
         self.scaler = (scaler or StandardScaler()) if scaler!=False else None
 
         tfms = []
-        tfms.append(FunctionTransformer(self.__to_2d_array))
+        tfms.append(To2DArray(np.float32))
         if self.imputer: tfms.append(self.imputer)
         if self.after_imputer: tfms.append(self.after_imputer)
         if self.scaler: tfms.append(self.scaler)
@@ -131,9 +137,6 @@ class ContinuousFeature(BaseFeature):
 
     def get_emb_dim(self):
         return self.emb_dim
-
-    def __to_2d_array(self, x):
-            return np.array(x, dtype=np.float32).reshape(len(x), -1)
 
 
 class FeatureGroup(BaseFeature):
@@ -156,11 +159,12 @@ class FeatureGroup(BaseFeature):
         return self.embedder.output_dim
 
 
-class SingleLabelTarget(BaseField):
-    def __init__(self, key=None, preprocessor=None):
+class SingleLabelTarget(BaseTarget):
+    def __init__(self, key=None, preprocessor=None, activation=None):
         self.key = key
         self.preprocessor = preprocessor
         self.categorical_encoder = LabelEncoder(is_target=True)
+        self.activation = activation or torch.nn.Softmax(dim=-1)
 
         tfms = [self.categorical_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
@@ -170,12 +174,16 @@ class SingleLabelTarget(BaseField):
         self.classes = self.categorical_encoder.vocab
         return self
 
+    def get_activation(self):
+        return self.activation
 
-class MultiLabelTarget(BaseField):
-    def __init__(self, key=None, preprocessor=None):
+
+class MultiLabelTarget(BaseTarget):
+    def __init__(self, key=None, preprocessor=None, activation=None):
         self.key = key
         self.preprocessor = preprocessor
         self.multi_label_encoder = MultiLabelEncoder()
+        self.activation = activation or torch.nn.Sigmoid()
 
         tfms = [self.multi_label_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
@@ -185,13 +193,21 @@ class MultiLabelTarget(BaseField):
         self.classes = self.multi_label_encoder.vocab
         return self
 
+    def get_activation(self):
+        return self.activation
 
-class ContinuousTarget(BaseField):
+
+class ContinuousTarget(BaseTarget):
     def __init__(self, key=None, preprocessor=None):
         self.key = key
         self.preprocessor = preprocessor
+        self.activation = activation or DummyModel()
+
         super().__init__(self.key, self.preprocessor, dtype=torch.float32)
 
     def fit(self, X, y=None):
         self.pipe.fit(X)
         return self
+
+    def get_activation(self):
+        return self.activation
