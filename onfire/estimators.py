@@ -39,8 +39,9 @@ class OnFireEstimator():
         metrics = metrics if isinstance(metrics, list) else [metrics]
         metrics = OrderedDict([(m.__name__ if inspect.isfunction(m) else str(m), m) for m in metrics])
         bar.write(['epoch', 'train_loss', 'valid_loss'] + list(metrics.keys()), table=True)
-        train_loss = self.ExponentialWeightedAverage()
+        train_loss = self.ExponentialMovingAverage()
         self.train_metrics = []
+        self.loss_log = []
 
         for epoch in bar:
             valid_epoch_log = []
@@ -49,6 +50,8 @@ class OnFireEstimator():
             for batch in progress_bar(train_dl, parent=bar):
                 loss = self.__train_batch(batch, device, optimizer, scheduler)
                 train_loss.update(loss)
+                self.loss_log.append(loss)
+
 
             self.model.eval()
             for batch in progress_bar(valid_dl, parent=bar):
@@ -124,13 +127,17 @@ class OnFireEstimator():
         bar.write([x if isinstance(x, int) else f'{x:.5f}' for x in res.values()], table=True)
         self.train_metrics.append(dict(res))
 
-    class ExponentialWeightedAverage():
-        def __init__(self, beta=0.98):
+    class ExponentialMovingAverage():
+        def __init__(self, beta=0.1):
             self.beta = beta
-            self.mean = 0
+            self.initialized = False
 
         def update(self, value):
-            self.mean = value * self.beta + self.mean * (1-self.beta)
+            if self.initialized:
+                self.mean = value * self.beta + self.mean * (1-self.beta)
+            else:
+                self.mean = value
+                self.initialized = True
 
         @property
         def value(self):
