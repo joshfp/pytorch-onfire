@@ -11,7 +11,7 @@ __all__ = [
 class ConcatEmbeddings(nn.Module):
     def __init__(self, fields):
         super().__init__()
-        self.output_dim = sum([field.get_emb_dim() for field in fields.values()])
+        self.output_dim = sum([field.get_layer_dim() for field in fields.values()])
         self.embedders = nn.ModuleList([field.build_embedder() for field in fields.values()])
 
     def forward(self, x):

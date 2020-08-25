@@ -33,14 +33,14 @@ class BaseField(ABC, TransformerMixin, BaseEstimator):
     def transform(self, X):
         return self.pipe.transform(X)
 
+    @abstractmethod
+    def get_layer_dim(self):
+        pass
+
 
 class BaseFeature(BaseField):
     @abstractmethod
     def build_embedder(self):
-        pass
-
-    @abstractmethod
-    def get_emb_dim(self):
         pass
 
 
@@ -70,7 +70,7 @@ class CategoricalFeature(BaseFeature):
         self.embedder = torch.nn.Embedding(len(self.vocab), self.emb_dim)
         return self.embedder
 
-    def get_emb_dim(self):
+    def get_layer_dim(self):
         return self.emb_dim
 
 
@@ -107,7 +107,7 @@ class TextFeature(BaseFeature):
         self.emb_dim = self.embedder(sample_input).shape[1]
         return self.embedder
 
-    def get_emb_dim(self):
+    def get_layer_dim(self):
         return self.emb_dim
 
 
@@ -135,7 +135,7 @@ class ContinuousFeature(BaseFeature):
         self.embedder = DummyModel()
         return self.embedder
 
-    def get_emb_dim(self):
+    def get_layer_dim(self):
         return self.emb_dim
 
 
@@ -155,7 +155,7 @@ class FeatureGroup(BaseFeature):
         self.embedder = ConcatEmbeddings(self.fields)
         return self.embedder
 
-    def get_emb_dim(self):
+    def get_layer_dim(self):
         return self.embedder.output_dim
 
 
@@ -177,6 +177,9 @@ class SingleLabelTarget(BaseTarget):
     def get_activation(self):
         return self.activation
 
+    def get_layer_dim(self):
+        return len(self.classes)
+
 
 class MultiLabelTarget(BaseTarget):
     def __init__(self, key=None, preprocessor=None, activation=None):
@@ -196,6 +199,9 @@ class MultiLabelTarget(BaseTarget):
     def get_activation(self):
         return self.activation
 
+    def get_layer_dim(self):
+        return len(self.classes)
+
 
 class ContinuousTarget(BaseTarget):
     def __init__(self, key=None, preprocessor=None):
@@ -207,7 +213,11 @@ class ContinuousTarget(BaseTarget):
 
     def fit(self, X, y=None):
         self.pipe.fit(X)
+        self.out_dim = self.transform([X[0]]).shape[1]
         return self
 
     def get_activation(self):
         return self.activation
+
+    def get_layer_dim(self):
+        return out_dim
