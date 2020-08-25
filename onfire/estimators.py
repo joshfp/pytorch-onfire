@@ -35,7 +35,7 @@ class OnFireEstimator():
         else:
             scheduler = None
 
-        bar = master_bar(range(epochs), total_time=True)
+        bar = master_bar(range(epochs))
         metrics = metrics if isinstance(metrics, list) else [metrics]
         metrics = OrderedDict([(m.__name__ if inspect.isfunction(m) else str(m), m) for m in metrics])
         bar.write(['epoch', 'train_loss', 'valid_loss'] + list(metrics.keys()), table=True)
