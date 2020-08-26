@@ -28,6 +28,7 @@ setup(
         'scikit-learn',
         'Unidecode',
         'fastprogress',
+        'matplotlib',
     ],
     python_requires='>=3.6',
     classifiers=[
