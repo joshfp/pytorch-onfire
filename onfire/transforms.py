@@ -18,7 +18,7 @@ class Projector(TransformerMixin, BaseEstimator):
     def __init__(self, keys):
         self.keys = keys if isinstance(keys, list) else [keys]
 
-    def __get(self, x):
+    def _get(self, x):
         for key in self.keys:
             x = x.get(key)
         return x
@@ -27,7 +27,7 @@ class Projector(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        return [self.__get(x) for x in X]
+        return [self._get(x) for x in X]
 
 
 class LabelEncoder(TransformerMixin, BaseEstimator):
@@ -45,11 +45,11 @@ class LabelEncoder(TransformerMixin, BaseEstimator):
         self.category2code = {x:i for i,x in enumerate(self.vocab)}
         return self
 
-    def __get_category_code(self, x):
+    def _get_category_code(self, x):
         return self.category2code.get(x) if self.is_target else self.category2code.get(x, 0)
 
     def transform(self, X):
-        return np.array([self.__get_category_code(x) for x in X], dtype=np.int)
+        return np.array([self._get_category_code(x) for x in X], dtype=np.int)
 
 
 class BasicTokenizer(TransformerMixin, BaseEstimator):
@@ -57,7 +57,7 @@ class BasicTokenizer(TransformerMixin, BaseEstimator):
         self.lower = lower
         self.map_to_ascii = map_to_ascii
 
-    def __preprocess(self, text):
+    def _preprocess(self, text):
         if text is None:
             text = ""
         elif not isinstance(text, str):
@@ -69,7 +69,7 @@ class BasicTokenizer(TransformerMixin, BaseEstimator):
             text = text.lower()
         return text
 
-    def __tokenize(self, text):
+    def _tokenize(self, text):
         res = []
         for token in text.split():
             while token and not token[-1].isalnum():
@@ -84,8 +84,8 @@ class BasicTokenizer(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        X = [self.__preprocess(x) for x in X]
-        transformed = {hash(x): self.__tokenize(x) for x in set(X)}
+        X = [self._preprocess(x) for x in X]
+        transformed = {hash(x): self._tokenize(x) for x in set(X)}
         return [transformed[hash(x)] for x in X]
 
 
