@@ -27,8 +27,8 @@ setup(
         'torch',
         'scikit-learn',
         'Unidecode',
-        'fastprogress',
-        'matplotlib',
+        'lmdb',
+        'msgpack',
     ],
     python_requires='>=3.6',
     classifiers=[
