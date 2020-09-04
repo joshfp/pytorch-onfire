@@ -4,14 +4,14 @@ import torch.nn.functional as F
 
 __all__ = [
     'ConcatEmbeddings',
-    'DummyModel',
+    'PassThrough',
     'MeanOfEmbeddings',
 ]
 
 class ConcatEmbeddings(nn.Module):
     def __init__(self, fields):
         super().__init__()
-        self.output_dim = sum([field.get_layer_dim() for field in fields.values()])
+        self.output_dim = sum([field.output_dim for field in fields.values()])
         self.embedders = nn.ModuleList([field.build_embedder() for field in fields.values()])
 
     def forward(self, x):
@@ -19,7 +19,7 @@ class ConcatEmbeddings(nn.Module):
         return torch.cat(res, dim=1)
 
 
-class DummyModel(nn.Module):
+class PassThrough(nn.Module):
     def forward(self, x):
         return x
 
