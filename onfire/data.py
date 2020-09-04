@@ -6,7 +6,6 @@ import tempfile
 import msgpack
 import struct
 
-
 __all__ = [
     'OnFireDataLoader',
     'OnFireDataset',

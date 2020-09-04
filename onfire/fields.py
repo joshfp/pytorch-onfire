@@ -3,13 +3,13 @@ import numpy as np
 from collections import OrderedDict
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, FunctionTransformer as FT
 from sklearn.impute import SimpleImputer
 from abc import ABC, abstractmethod
 
 from .transforms import (Projector, LabelEncoder, BasicTokenizer, TokensEncoder,
     ToTensor, MultiLabelEncoder, To2DArray)
-from .models import ConcatEmbeddings, DummyModel, MeanOfEmbeddings
+from .embedders import ConcatEmbeddings, PassThrough, MeanOfEmbeddings
 
 __all__ = [
     'CategoricalFeature',
@@ -33,20 +33,15 @@ class BaseField(ABC, TransformerMixin, BaseEstimator):
     def transform(self, X):
         return self.pipe.transform(X)
 
+    @property
     @abstractmethod
-    def get_layer_dim(self):
+    def output_dim(self):
         pass
 
 
 class BaseFeature(BaseField):
     @abstractmethod
     def build_embedder(self):
-        pass
-
-
-class BaseTarget(BaseField):
-    @abstractmethod
-    def get_activation(self):
         pass
 
 
@@ -70,7 +65,8 @@ class CategoricalFeature(BaseFeature):
         self.embedder = torch.nn.Embedding(len(self.vocab), self.emb_dim)
         return self.embedder
 
-    def get_layer_dim(self):
+    @property
+    def output_dim(self):
         return self.emb_dim
 
 
@@ -107,24 +103,31 @@ class TextFeature(BaseFeature):
         self.emb_dim = self.embedder(sample_input).shape[1]
         return self.embedder
 
-    def get_layer_dim(self):
+    @property
+    def output_dim(self):
         return self.emb_dim
 
 
 class ContinuousFeature(BaseFeature):
-    def __init__(self, key=None, preprocessor=None, imputer=None, after_imputer=None, scaler=None):
+    def __init__(self, key=None, preprocessor=None, imputer=None, log=False, scaler=None):
         self.key = key
         self.preprocessor = preprocessor
         self.imputer = (imputer or SimpleImputer()) if imputer!=False else None
-        self.after_imputer = after_imputer
+        self.log = log
         self.scaler = (scaler or StandardScaler()) if scaler!=False else None
 
         tfms = []
         tfms.append(To2DArray(np.float32))
         if self.imputer: tfms.append(self.imputer)
-        if self.after_imputer: tfms.append(self.after_imputer)
+        if self.log: tfms.append(make_pipeline(FT(self._make_log_friendly), FT(np.log)))
         if self.scaler: tfms.append(self.scaler)
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
+
+    def _make_log_friendly(self, X):
+        min_ = min(X)
+        if min_ < 1:
+            X += (1 - min_)
+        return X
 
     def fit(self, X, y=None):
         self.pipe.fit(X)
@@ -132,10 +135,11 @@ class ContinuousFeature(BaseFeature):
         return self
 
     def build_embedder(self):
-        self.embedder = DummyModel()
+        self.embedder = PassThrough()
         return self.embedder
 
-    def get_layer_dim(self):
+    @property
+    def output_dim(self):
         return self.emb_dim
 
 
@@ -155,16 +159,16 @@ class FeatureGroup(BaseFeature):
         self.embedder = ConcatEmbeddings(self.fields)
         return self.embedder
 
-    def get_layer_dim(self):
+    @property
+    def output_dim(self):
         return self.embedder.output_dim
 
 
-class SingleLabelTarget(BaseTarget):
-    def __init__(self, key=None, preprocessor=None, activation=None):
+class SingleLabelTarget(BaseField):
+    def __init__(self, key=None, preprocessor=None):
         self.key = key
         self.preprocessor = preprocessor
         self.categorical_encoder = LabelEncoder(is_target=True)
-        self.activation = activation or torch.nn.Softmax(dim=-1)
 
         tfms = [self.categorical_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
@@ -174,19 +178,16 @@ class SingleLabelTarget(BaseTarget):
         self.classes = self.categorical_encoder.vocab
         return self
 
-    def get_activation(self):
-        return self.activation
-
-    def get_layer_dim(self):
+    @property
+    def output_dim(self):
         return len(self.classes)
 
 
-class MultiLabelTarget(BaseTarget):
-    def __init__(self, key=None, preprocessor=None, activation=None):
+class MultiLabelTarget(BaseField):
+    def __init__(self, key=None, preprocessor=None):
         self.key = key
         self.preprocessor = preprocessor
         self.multi_label_encoder = MultiLabelEncoder()
-        self.activation = activation or torch.nn.Sigmoid()
 
         tfms = [self.multi_label_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
@@ -196,28 +197,27 @@ class MultiLabelTarget(BaseTarget):
         self.classes = self.multi_label_encoder.vocab
         return self
 
-    def get_activation(self):
-        return self.activation
-
-    def get_layer_dim(self):
+    @property
+    def output_dim(self):
         return len(self.classes)
 
 
-class ContinuousTarget(BaseTarget):
-    def __init__(self, key=None, preprocessor=None):
+class ContinuousTarget(BaseField):
+    def __init__(self, key=None, preprocessor=None, log=False):
         self.key = key
         self.preprocessor = preprocessor
-        self.activation = activation or DummyModel()
 
-        super().__init__(self.key, self.preprocessor, dtype=torch.float32)
+        tfms = []
+        tfms.append(To2DArray(np.float32))
+        if log: tmfs.append(FT(np.log))
+
+        super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
     def fit(self, X, y=None):
         self.pipe.fit(X)
         self.out_dim = self.transform([X[0]]).shape[1]
         return self
 
-    def get_activation(self):
-        return self.activation
-
-    def get_layer_dim(self):
+    @property
+    def output_dim(self):
         return out_dim
