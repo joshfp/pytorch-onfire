@@ -7,8 +7,8 @@ from sklearn.preprocessing import StandardScaler, FunctionTransformer as FT
 from sklearn.impute import SimpleImputer
 from abc import ABC, abstractmethod
 
-from .transforms import (Projector, LabelEncoder, BasicTokenizer, TokensEncoder,
-    ToTensor, MultiLabelEncoder, To2DArray)
+from .transformers import (Projector, LabelEncoder, BasicTokenizer, TokensEncoder,
+    ToTensor, MultiLabelEncoder, To2DFloatArray, Log)
 from .embedders import ConcatEmbeddings, PassThrough, MeanOfEmbeddings
 
 __all__ = [
@@ -33,6 +33,9 @@ class BaseField(ABC, TransformerMixin, BaseEstimator):
     def transform(self, X):
         return self.pipe.transform(X)
 
+    def inverse_transform(self, X):
+        return self.pipe.inverse_transform(X)
+
     @property
     @abstractmethod
     def output_dim(self):
@@ -42,6 +45,10 @@ class BaseField(ABC, TransformerMixin, BaseEstimator):
 class BaseFeature(BaseField):
     @abstractmethod
     def build_embedder(self):
+        pass
+
+    @property
+    def embedder(self):
         pass
 
 
@@ -62,12 +69,16 @@ class CategoricalFeature(BaseFeature):
         return self
 
     def build_embedder(self):
-        self.embedder = torch.nn.Embedding(len(self.vocab), self.emb_dim)
+        self._embedder = torch.nn.Embedding(len(self.vocab), self.emb_dim)
         return self.embedder
 
     @property
     def output_dim(self):
         return self.emb_dim
+
+    @property
+    def embedder(self):
+        return self._embedder
 
 
 class TextFeature(BaseFeature):
@@ -98,7 +109,7 @@ class TextFeature(BaseFeature):
         return self
 
     def build_embedder(self):
-        self.embedder = self.embedder_cls(**self.embedder_args)
+        self._embedder = self.embedder_cls(**self.embedder_args)
         sample_input = torch.randint(len(self.vocab), (2, self.max_len))
         self.emb_dim = self.embedder(sample_input).shape[1]
         return self.embedder
@@ -107,9 +118,13 @@ class TextFeature(BaseFeature):
     def output_dim(self):
         return self.emb_dim
 
+    @property
+    def embedder(self):
+        return self._embedder
+
 
 class ContinuousFeature(BaseFeature):
-    def __init__(self, key=None, preprocessor=None, imputer=None, log=False, scaler=None):
+    def __init__(self, key=None, preprocessor=None, imputer=None, scaler=False, log=False, log_auto_scale=True):
         self.key = key
         self.preprocessor = preprocessor
         self.imputer = (imputer or SimpleImputer()) if imputer!=False else None
@@ -117,17 +132,12 @@ class ContinuousFeature(BaseFeature):
         self.scaler = (scaler or StandardScaler()) if scaler!=False else None
 
         tfms = []
-        tfms.append(To2DArray(np.float32))
+        tfms.append(To2DFloatArray())
         if self.imputer: tfms.append(self.imputer)
-        if self.log: tfms.append(make_pipeline(FT(self._make_log_friendly), FT(np.log)))
+        if self.log: tfms.append(Log(auto_scale=log_auto_scale))
         if self.scaler: tfms.append(self.scaler)
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
-    def _make_log_friendly(self, X):
-        min_ = min(X)
-        if min_ < 1:
-            X += (1 - min_)
-        return X
 
     def fit(self, X, y=None):
         self.pipe.fit(X)
@@ -135,12 +145,16 @@ class ContinuousFeature(BaseFeature):
         return self
 
     def build_embedder(self):
-        self.embedder = PassThrough()
+        self._embedder = PassThrough()
         return self.embedder
 
     @property
     def output_dim(self):
         return self.emb_dim
+
+    @property
+    def embedder(self):
+        return self._embedder
 
 
 class FeatureGroup(BaseFeature):
@@ -155,23 +169,38 @@ class FeatureGroup(BaseFeature):
     def transform(self, X, y=None):
         return [field.transform(X) for field in self.fields.values()]
 
+    def inverse_transform(self, X):
+        tmp = [field.inverse_transform(X[i]) for i, field in enumerate(self.fields.values())]
+        res = []
+        for i in range(len(X[0])):
+            d = {}
+            for field in tmp:
+                d.update(field[i])
+            res.append(d)
+        return res
+
     def build_embedder(self):
-        self.embedder = ConcatEmbeddings(self.fields)
+        self._embedder = ConcatEmbeddings(self.fields)
         return self.embedder
 
     @property
     def output_dim(self):
         return self.embedder.output_dim
 
+    @property
+    def embedder(self):
+        return self._embedder
+
 
 class SingleLabelTarget(BaseField):
-    def __init__(self, key=None, preprocessor=None):
+    def __init__(self, key=None, preprocessor=None, dtype=torch.int64):
         self.key = key
         self.preprocessor = preprocessor
         self.categorical_encoder = LabelEncoder(is_target=True)
+        self.dtype = dtype
 
         tfms = [self.categorical_encoder]
-        super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
+        super().__init__(self.key, self.preprocessor, tfms, dtype=self.dtype)
 
     def fit(self, X, y=None):
         self.pipe.fit(X)
@@ -184,13 +213,14 @@ class SingleLabelTarget(BaseField):
 
 
 class MultiLabelTarget(BaseField):
-    def __init__(self, key=None, preprocessor=None):
+    def __init__(self, key=None, preprocessor=None, dtype=torch.float32):
         self.key = key
         self.preprocessor = preprocessor
         self.multi_label_encoder = MultiLabelEncoder()
+        self.dtype = dtype
 
         tfms = [self.multi_label_encoder]
-        super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
+        super().__init__(self.key, self.preprocessor, tfms, dtype=self.dtype)
 
     def fit(self, X, y=None):
         self.pipe.fit(X)
@@ -203,13 +233,13 @@ class MultiLabelTarget(BaseField):
 
 
 class ContinuousTarget(BaseField):
-    def __init__(self, key=None, preprocessor=None, log=False):
+    def __init__(self, key=None, preprocessor=None, log=False, log_auto_scale=False):
         self.key = key
         self.preprocessor = preprocessor
 
         tfms = []
-        tfms.append(To2DArray(np.float32))
-        if log: tmfs.append(FT(np.log))
+        tfms.append(To2DFloatArray())
+        if self.log: tfms.append(Log(auto_scale=log_auto_scale))
 
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 

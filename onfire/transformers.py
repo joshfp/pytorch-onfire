@@ -11,23 +11,33 @@ __all__ = [
     'TokensEncoder',
     'ToTensor',
     'MultiLabelEncoder',
-    'To2DArray',
+    'To2DFloatArray',
+    'Log',
 ]
 
 class Projector(TransformerMixin, BaseEstimator):
     def __init__(self, keys):
         self.keys = keys if isinstance(keys, list) else [keys]
 
+    def fit(self, X, y=None):
+        return self
+
     def _get(self, x):
         for key in self.keys:
             x = x.get(key)
         return x
 
-    def fit(self, X, y=None):
-        return self
-
     def transform(self, X):
         return [self._get(x) for x in X]
+
+    def _inverse(self, x):
+        t = x
+        for key in reversed(self.keys):
+            t = {key: t}
+        return t
+
+    def inverse_transform(self, X):
+        return [self._inverse(x) for x in X]
 
 
 class LabelEncoder(TransformerMixin, BaseEstimator):
@@ -50,6 +60,9 @@ class LabelEncoder(TransformerMixin, BaseEstimator):
 
     def transform(self, X):
         return np.array([self._get_category_code(x) for x in X], dtype=np.int)
+
+    def inverse_transform(self, X):
+        return [self.vocab[x] for x in X]
 
 
 class BasicTokenizer(TransformerMixin, BaseEstimator):
@@ -88,6 +101,9 @@ class BasicTokenizer(TransformerMixin, BaseEstimator):
         transformed = {hash(x): self._tokenize(x) for x in set(X)}
         return [transformed[hash(x)] for x in X]
 
+    def inverse_transform(self, X):
+        return [' '.join(x) for x in X]
+
 
 class TokensEncoder(TransformerMixin, BaseEstimator):
     class PaddingToken:
@@ -117,12 +133,15 @@ class TokensEncoder(TransformerMixin, BaseEstimator):
         return self
 
     def transform(self, X):
-        out = np.zeros((len(X), self.max_len), dtype=np.int)
+        res = np.zeros((len(X), self.max_len), dtype=np.int)
         for i, sentence in enumerate(X):
             codes = [self.token2code.get(token, 1) for token in sentence[:self.max_len]]
             sentence_len = min(len(sentence), self.max_len)
-            out[i,:sentence_len] = np.array(codes)
-        return out
+            res[i,:sentence_len] = np.array(codes)
+        return res
+
+    def inverse_transform(self, X):
+        return [[str(self.vocab[token_code]) for token_code in x if token_code!=0] for x in X]
 
 
 class ToTensor(TransformerMixin, BaseEstimator):
@@ -135,6 +154,9 @@ class ToTensor(TransformerMixin, BaseEstimator):
     def transform(self, X):
         return torch.tensor(X, dtype=self.dtype)
 
+    def inverse_transform(self, X):
+        return X.numpy()
+
 
 class MultiLabelEncoder(TransformerMixin, BaseEstimator):
     def fit(self, X, y=None):
@@ -145,12 +167,30 @@ class MultiLabelEncoder(TransformerMixin, BaseEstimator):
         return [[(_class in row) for _class in self.vocab] for row in X]
 
 
-class To2DArray(TransformerMixin, BaseEstimator):
-    def __init__(self, dtype=None):
-        self.dtype = dtype
-
+class To2DFloatArray(TransformerMixin, BaseEstimator):
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        return np.array(X, dtype=self.dtype).reshape(len(X), -1)
+        X = np.array(X, dtype=np.object)
+        X[X==''] = np.nan
+        return X.astype(np.float32).reshape(len(X), -1)
+
+    def inverse_transform(self, X):
+        return np.squeeze(X, axis=-1)
+
+
+class Log(TransformerMixin, BaseEstimator):
+    def __init__(self, auto_scale):
+        self.auto_scale = auto_scale
+
+    def fit(self, X, y=None):
+        min_ = min(X)
+        self.offset = 1 - min_ if (self.auto_scale and min_ < 1) else 0
+        return self
+
+    def transform(self, X):
+        return np.log(X + self.offset)
+
+    def inverse_transform(self, X):
+        return np.exp(X) - self.offset
