@@ -29,6 +29,8 @@ setup(
         'Unidecode',
         'lmdb',
         'msgpack',
+        'fastprogress',
+        'matplotlib',
     ],
     python_requires='>=3.6',
     classifiers=[
