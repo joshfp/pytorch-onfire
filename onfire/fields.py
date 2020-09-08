@@ -128,13 +128,14 @@ class ContinuousFeature(BaseFeature):
         self.key = key
         self.preprocessor = preprocessor
         self.imputer = (imputer or SimpleImputer()) if imputer!=False else None
-        self.log = log
         self.scaler = (scaler or StandardScaler()) if scaler!=False else None
+        self.log = log
+        self.log_auto_scale = log_auto_scale
 
         tfms = []
         tfms.append(To2DFloatArray())
         if self.imputer: tfms.append(self.imputer)
-        if self.log: tfms.append(Log(auto_scale=log_auto_scale))
+        if self.log: tfms.append(Log(auto_scale=self.log_auto_scale))
         if self.scaler: tfms.append(self.scaler)
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
@@ -235,10 +236,12 @@ class ContinuousTarget(BaseField):
     def __init__(self, key=None, preprocessor=None, log=False, log_auto_scale=False):
         self.key = key
         self.preprocessor = preprocessor
+        self.log = log
+        self.log_auto_scale = log_auto_scale
 
         tfms = []
         tfms.append(To2DFloatArray())
-        if self.log: tfms.append(Log(auto_scale=log_auto_scale))
+        if self.log: tfms.append(Log(auto_scale=self.log_auto_scale))
 
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
