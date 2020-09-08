@@ -20,9 +20,12 @@ setup(
     description='PyTorch meets Sklearn Pipelines.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/joshfp/onfire',
+    url='https://github.com/joshfp/pytorch-onfire',
     license='MIT',
-    packages=['onfire'],
+    packages=[
+        'onfire',
+        'onfire.colab',
+    ],
     install_requires=[
         'torch',
         'scikit-learn',

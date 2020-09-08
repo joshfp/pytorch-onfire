@@ -138,7 +138,6 @@ class ContinuousFeature(BaseFeature):
         if self.scaler: tfms.append(self.scaler)
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
-
     def fit(self, X, y=None):
         self.pipe.fit(X)
         self.emb_dim = self.transform([X[0]]).shape[1]

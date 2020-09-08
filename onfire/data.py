@@ -28,7 +28,8 @@ class OnFireDataLoader(DataLoader):
 
 class OnFireDataset(Dataset):
     def __init__(self, data, max_readers):
-        if max_readers > 1: # use lmdb
+        self.use_lmdb = max_readers > 1
+        if self.use_lmdb:
             tmpdir = tempfile.TemporaryDirectory().name
             self.db = lmdb.open(tmpdir, map_size=1024**4, lock=False, max_readers=max_readers)
             self.key_struct = struct.Struct("!q")
@@ -36,14 +37,12 @@ class OnFireDataset(Dataset):
             with self.db.begin(write=True) as txn:
                 with txn.cursor() as cursor:
                     cursor.putmulti(it)
-            self.lmdb = True
         else:
             self.data = data
-            self.lmdb = False
         self._len = len(data)
 
     def __getitem__(self, idx):
-        if self.lmdb:
+        if self.use_lmdb:
             key = self.key_struct.pack(idx)
             with self.db.begin() as txn:
                 return msgpack.unpackb(txn.get(key))
