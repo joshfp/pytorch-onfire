@@ -81,7 +81,6 @@ class SupervisedRunner:
     def _predict_batch(self, batch, include_target):
         xb = batch[:-1] if len(batch) > 1 else [batch[0]]
         yb = batch[-1].cpu() if include_target and len(batch) > 1 else None
-        yb = batch[1].cpu() if include_target else None
         with torch.no_grad():
             output = self.model(*xb)
         return output.cpu(), yb
