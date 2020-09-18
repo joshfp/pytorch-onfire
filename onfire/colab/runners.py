@@ -67,22 +67,23 @@ class SupervisedRunner:
             return (preds, torch.cat(ys)) if include_target else preds
 
     def _train_batch(self, batch, optimizer, scheduler):
-        xb, yb = batch
-        output = self.model(xb)
+        *xb, yb = batch
+        output = self.model(*xb)
         return self.loss_fn(output, yb)
 
     def _valid_batch(self, batch):
-        xb, yb = batch
+        *xb, yb = batch
         with torch.no_grad():
-            output = self.model(xb)
+            output = self.model(*xb)
             loss = self.loss_fn(output, yb)
         return {'loss': loss.item(), 'y_true': yb.cpu(), 'y_pred': output.cpu()}
 
     def _predict_batch(self, batch, include_target):
-        xb = batch[0]
+        xb = batch[:-1] if len(batch) > 1 else [batch[0]]
+        yb = batch[-1].cpu() if include_target and len(batch) > 1 else None
         yb = batch[1].cpu() if include_target else None
         with torch.no_grad():
-            output = self.model(xb)
+            output = self.model(*xb)
         return output.cpu(), yb
 
 

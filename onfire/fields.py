@@ -124,7 +124,7 @@ class TextFeature(BaseFeature):
 
 
 class ContinuousFeature(BaseFeature):
-    def __init__(self, key=None, preprocessor=None, imputer=None, scaler=False, log=False, log_auto_scale=True):
+    def __init__(self, key=None, preprocessor=None, imputer=None, scaler=None, log=False, log_auto_scale=True):
         self.key = key
         self.preprocessor = preprocessor
         self.imputer = (imputer or SimpleImputer()) if imputer!=False else None
