@@ -1,9 +1,11 @@
 from functools import wraps
+from itertools import chain, islice
 import torch
 
 __all__ = [
     'mappify',
     'batch_to_device',
+    'batchify',
 ]
 
 def mappify(func):
@@ -21,3 +23,9 @@ def batch_to_device(batch, device):
         return res if isinstance(batch, list) else tuple(res)
     elif isinstance(batch, dict):
         return {k: batch_to_device(v, device) for k,v in batch.items()}
+
+
+def batchify(iterable, batch_size):
+    iterator = iter(iterable)
+    for first in iterator:
+        yield list(chain([first], islice(iterator, batch_size - 1)))

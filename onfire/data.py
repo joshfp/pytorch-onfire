@@ -37,9 +37,10 @@ class OnFireDataset(Dataset):
             with self.db.begin(write=True) as txn:
                 with txn.cursor() as cursor:
                     cursor.putmulti(it)
+                self._len = txn.stat()['entries']
         else:
             self.data = data
-        self._len = len(data)
+            self._len = len(data)
 
     def __getitem__(self, idx):
         if self.use_lmdb:

@@ -1,15 +1,15 @@
 import torch
 import numpy as np
 from collections import OrderedDict
-from sklearn.base import TransformerMixin, BaseEstimator
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler, FunctionTransformer as FT
-from sklearn.impute import SimpleImputer
+from sklearn.base import TransformerMixin
+from sklearn.preprocessing import StandardScaler
 from abc import ABC, abstractmethod
 
 from .transformers import (Projector, LabelEncoder, BasicTokenizer, TokensEncoder,
-    ToTensor, MultiLabelEncoder, To2DFloatArray, Log)
+    ToTensor, MultiLabelEncoder, To2DFloatArray, Log, SimpleImputer)
 from .embedders import ConcatEmbeddings, PassThrough, MeanOfEmbeddings
+from .pipeline import make_pipeline
+from .utils import batchify
 
 __all__ = [
     'CategoricalFeature',
@@ -21,7 +21,7 @@ __all__ = [
     'ContinuousTarget',
 ]
 
-class BaseField(ABC, TransformerMixin, BaseEstimator):
+class BaseField(ABC, TransformerMixin):
     def __init__(self, key, preprocessor, custom_tfms=None, dtype=None):
         tfms = []
         if key: tfms.append(Projector(key))
@@ -30,16 +30,35 @@ class BaseField(ABC, TransformerMixin, BaseEstimator):
         tfms.append(ToTensor(dtype=dtype))
         self.pipe = make_pipeline(*tfms)
 
+    @property
+    @abstractmethod
+    def output_dim(self):
+        pass
+
     def transform(self, X):
         return self.pipe.transform(X)
 
     def inverse_transform(self, X):
         return self.pipe.inverse_transform(X)
 
-    @property
-    @abstractmethod
-    def output_dim(self):
-        pass
+    def _fit(self, X, partial):
+        if partial:
+            self.pipe.partial_fit(X)
+        else:
+            self.pipe.fit(X)
+        return self
+
+    def fit(self, X):
+        self._fit(X, partial=False)
+
+    def partial_fit(self, X):
+        self._fit(X, partial=True)
+
+    def fit_generator(self, X, batch_size=1000000):
+        for batch in batchify(X, batch_size):
+            if batch_size == 1:
+                batch = [batch]
+            self.partial_fit(batch)
 
 
 class BaseFeature(BaseField):
@@ -62,13 +81,13 @@ class CategoricalFeature(BaseFeature):
         tfms = [self.categorical_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
 
-    def fit(self, X, y=None):
-        self.pipe.fit(X)
+    def _fit(self, X, partial):
+        super()._fit(X, partial)
         self.vocab = self.categorical_encoder.vocab
-        self.emb_dim = self.emb_dim or min(len(self.vocab)//2, 50)
         return self
 
     def build_embedder(self):
+        self.emb_dim = self.emb_dim or min(len(self.vocab)//2, 50)
         self._embedder = torch.nn.Embedding(len(self.vocab), self.emb_dim)
         return self.embedder
 
@@ -102,13 +121,13 @@ class TextFeature(BaseFeature):
         tfms = [self.tokenizer, self.token_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.int64)
 
-    def fit(self, X, y=None):
-        self.pipe.fit(X)
+    def _fit(self, X, partial):
+        super()._fit(X, partial)
         self.vocab = self.token_encoder.vocab
-        self.embedder_args[self.embedder_vocab_size_param] = len(self.vocab)
         return self
 
     def build_embedder(self):
+        self.embedder_args[self.embedder_vocab_size_param] = len(self.vocab)
         self._embedder = self.embedder_cls(**self.embedder_args)
         sample_input = torch.randint(len(self.vocab), (2, self.max_len))
         self.emb_dim = self.embedder(sample_input).shape[1]
@@ -139,8 +158,8 @@ class ContinuousFeature(BaseFeature):
         if self.scaler: tfms.append(self.scaler)
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
-    def fit(self, X, y=None):
-        self.pipe.fit(X)
+    def _fit(self, X, partial):
+        super()._fit(X, partial)
         self.emb_dim = self.transform([X[0]]).shape[1]
         return self
 
@@ -161,12 +180,15 @@ class FeatureGroup(BaseFeature):
     def __init__(self, fields):
         self.fields = OrderedDict(fields)
 
-    def fit(self, X, y=None):
+    def _fit(self, X, partial):
         for field in self.fields.values():
-            field.fit(X)
+            if partial:
+                field.partial_fit(X)
+            else:
+                field.fit(X)
         return self
 
-    def transform(self, X, y=None):
+    def transform(self, X):
         return [field.transform(X) for field in self.fields.values()]
 
     def inverse_transform(self, X):
@@ -202,8 +224,8 @@ class SingleLabelTarget(BaseField):
         tfms = [self.categorical_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=self.dtype)
 
-    def fit(self, X, y=None):
-        self.pipe.fit(X)
+    def _fit(self, X, partial):
+        super()._fit(X, partial)
         self.classes = self.categorical_encoder.vocab
         return self
 
@@ -222,8 +244,8 @@ class MultiLabelTarget(BaseField):
         tfms = [self.multi_label_encoder]
         super().__init__(self.key, self.preprocessor, tfms, dtype=self.dtype)
 
-    def fit(self, X, y=None):
-        self.pipe.fit(X)
+    def _fit(self, X, partial):
+        super()._fit(X, partial)
         self.classes = self.multi_label_encoder.vocab
         return self
 
@@ -245,9 +267,9 @@ class ContinuousTarget(BaseField):
 
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
-    def fit(self, X, y=None):
-        self.pipe.fit(X)
-        self.out_dim = self.transform([X[0]]).shape[1]
+    def _fit(self, X, partial):
+        super()._fit(X, partial)
+        self.out_dim = self.transform([y[0]]).shape[1]
         return self
 
     @property
