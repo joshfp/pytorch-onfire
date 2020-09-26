@@ -254,4 +254,4 @@ class ContinuousTarget(BaseField):
 
     @property
     def output_dim(self):
-        return out_dim
+        return self.out_dim
