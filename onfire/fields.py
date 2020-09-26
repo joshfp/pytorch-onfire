@@ -50,15 +50,18 @@ class BaseField(ABC, TransformerMixin):
 
     def fit(self, X):
         self._fit(X, partial=False)
+        return self
 
     def partial_fit(self, X):
         self._fit(X, partial=True)
+        return self
 
     def fit_generator(self, X, batch_size=1000000):
         for batch in batchify(X, batch_size):
             if batch_size == 1:
                 batch = [batch]
             self.partial_fit(batch)
+        return self
 
 
 class BaseFeature(BaseField):
