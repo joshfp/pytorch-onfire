@@ -11,6 +11,7 @@ __all__ = [
     'OnFireDataset',
 ]
 
+
 class OnFireDataLoader(DataLoader):
     def __init__(self, data, tfms, batch_size, shuffle=False, num_workers=0,
                  sampler=None, pin_memory=None, drop_last=False, **kwargs):
@@ -23,7 +24,7 @@ class OnFireDataLoader(DataLoader):
                          pin_memory=pin_memory, drop_last=drop_last, **kwargs)
 
     def __collate(self, batch):
-            return tuple([tfm(batch) for tfm in self.tfms])
+        return tuple([tfm(batch) for tfm in self.tfms])
 
 
 class OnFireDataset(Dataset):
@@ -33,7 +34,7 @@ class OnFireDataset(Dataset):
             tmpdir = tempfile.TemporaryDirectory().name
             self.db = lmdb.open(tmpdir, map_size=1024**4, lock=False, max_readers=max_readers)
             self.key_struct = struct.Struct("!q")
-            it = [(self.key_struct.pack(i), msgpack.packb(x)) for i,x in enumerate(data)]
+            it = [(self.key_struct.pack(i), msgpack.packb(x)) for i, x in enumerate(data)]
             with self.db.begin(write=True) as txn:
                 with txn.cursor() as cursor:
                     cursor.putmulti(it)

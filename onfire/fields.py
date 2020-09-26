@@ -1,13 +1,13 @@
 import torch
-import numpy as np
 from collections import OrderedDict
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler, FunctionTransformer as FT
+from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from abc import ABC, abstractmethod
 
-from .transformers import (Projector, LabelEncoder, BasicTokenizer, TokensEncoder,
+from .transformers import (
+    Projector, LabelEncoder, BasicTokenizer, TokensEncoder,
     ToTensor, MultiLabelEncoder, To2DFloatArray, Log)
 from .embedders import ConcatEmbeddings, PassThrough, MeanOfEmbeddings
 
@@ -20,6 +20,7 @@ __all__ = [
     'MultiLabelTarget',
     'ContinuousTarget',
 ]
+
 
 class BaseField(ABC, TransformerMixin, BaseEstimator):
     def __init__(self, key, preprocessor, custom_tfms=None, dtype=None):
@@ -65,7 +66,7 @@ class CategoricalFeature(BaseFeature):
     def fit(self, X, y=None):
         self.pipe.fit(X)
         self.vocab = self.categorical_encoder.vocab
-        self.emb_dim = self.emb_dim or min(len(self.vocab)//2, 50)
+        self.emb_dim = self.emb_dim or min(len(self.vocab) // 2, 50)
         return self
 
     def build_embedder(self):
@@ -124,11 +125,12 @@ class TextFeature(BaseFeature):
 
 
 class ContinuousFeature(BaseFeature):
-    def __init__(self, key=None, preprocessor=None, imputer=None, scaler=None, log=False, log_auto_scale=True):
+    def __init__(self, key=None, preprocessor=None, imputer=None, scaler=None, log=False,
+                 log_auto_scale=True):
         self.key = key
         self.preprocessor = preprocessor
-        self.imputer = (imputer or SimpleImputer()) if imputer!=False else None
-        self.scaler = (scaler or StandardScaler()) if scaler!=False else None
+        self.imputer = (imputer or SimpleImputer()) if imputer != False else None
+        self.scaler = (scaler or StandardScaler()) if scaler != False else None
         self.log = log
         self.log_auto_scale = log_auto_scale
 

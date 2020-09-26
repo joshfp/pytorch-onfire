@@ -6,6 +6,7 @@ __all__ = [
     'batch_to_device',
 ]
 
+
 def mappify(func):
     @wraps(func)
     def inner(X, **kwargs):
@@ -20,4 +21,4 @@ def batch_to_device(batch, device):
         res = [batch_to_device(x, device) for x in batch]
         return res if isinstance(batch, list) else tuple(res)
     elif isinstance(batch, dict):
-        return {k: batch_to_device(v, device) for k,v in batch.items()}
+        return {k: batch_to_device(v, device) for k, v in batch.items()}
