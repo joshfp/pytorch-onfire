@@ -6,12 +6,12 @@ from collections import defaultdict
 import inspect
 import matplotlib.pyplot as plt
 
-from onfire.data import OnFireDataLoader
 from onfire.utils import batch_to_device
 
 all = [
     'SupervisedRunner',
 ]
+
 
 class SupervisedRunner:
     def __init__(self, model, loss_fn):
@@ -23,7 +23,7 @@ class SupervisedRunner:
         self.model.to(device)
         optimizer = optimizer or Adam(self.model.parameters(), lr)
         if scheduler != False:
-            scheduler = scheduler or OneCycleLR(optimizer, lr, epochs*len(train_dl))
+            scheduler = scheduler or OneCycleLR(optimizer, lr, epochs * len(train_dl))
         else:
             scheduler = None
         self.train_stats = TrainTracker(metrics, validate=(valid_dl is not None))
@@ -54,17 +54,17 @@ class SupervisedRunner:
             bar.write(self.train_stats.get_metrics_values(), table=True)
 
     def predict(self, dl, include_target=False):
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            self.model.to(device)
-            self.model.eval()
-            preds, ys = [], []
-            for batch in progress_bar(dl):
-                batch = batch_to_device(batch, device)
-                pred, y = self._predict_batch(batch, include_target)
-                preds.append(pred)
-                ys.append(y)
-            preds = torch.cat(preds)
-            return (preds, torch.cat(ys)) if include_target else preds
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model.to(device)
+        self.model.eval()
+        preds, ys = [], []
+        for batch in progress_bar(dl):
+            batch = batch_to_device(batch, device)
+            pred, y = self._predict_batch(batch, include_target)
+            preds.append(pred)
+            ys.append(y)
+        preds = torch.cat(preds)
+        return (preds, torch.cat(ys)) if include_target else preds
 
     def _train_batch(self, batch, optimizer, scheduler):
         *xb, yb = batch
@@ -110,7 +110,7 @@ class TrainTracker:
         self.train_smooth_loss.update(loss.item())
 
     def log_epoch_results(self, valid_output):
-        self.epoch = self.epoch+1
+        self.epoch = self.epoch + 1
         self.train_loss.append(self.train_smooth_loss.value)
 
         if self.validate:
@@ -132,11 +132,11 @@ class TrainTracker:
     def _process_valid_output(self, valid_output):
         res = defaultdict(list)
         for d in valid_output:
-            for k,v in d.items():
+            for k, v in d.items():
                 v = v if isinstance(v, torch.Tensor) else torch.tensor(v)
                 v = v if len(v.shape) else v.view(1)
                 res[k].append(v)
-        return {k: torch.cat(v) for k,v in res.items()}
+        return {k: torch.cat(v) for k, v in res.items()}
 
     def plot_loss(self):
         fig, ax = plt.subplots()
@@ -152,7 +152,7 @@ class ExponentialMovingAverage():
 
     def update(self, value):
         if self.initialized:
-            self.mean = value * self.beta + self.mean * (1-self.beta)
+            self.mean = value * self.beta + self.mean * (1 - self.beta)
         else:
             self.mean = value
             self.initialized = True

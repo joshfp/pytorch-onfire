@@ -15,6 +15,7 @@ __all__ = [
     'Log',
 ]
 
+
 class Projector(TransformerMixin, BaseEstimator):
     def __init__(self, keys):
         self.keys = keys if isinstance(keys, list) else [keys]
@@ -52,7 +53,7 @@ class LabelEncoder(TransformerMixin, BaseEstimator):
         self.vocab = sorted([x for x in set(X) if x is not None])
         if not self.is_target:
             self.vocab.insert(0, self.UnknownLabel())
-        self.category2code = {x:i for i,x in enumerate(self.vocab)}
+        self.category2code = {x: i for i, x in enumerate(self.vocab)}
         return self
 
     def _get_category_code(self, x):
@@ -125,7 +126,7 @@ class TokensEncoder(TransformerMixin, BaseEstimator):
             token_freq.update(sentence)
 
         vocab = [token for token, count in token_freq.most_common(self.max_vocab)
-                    if count >= self.min_freq]
+                 if count >= self.min_freq]
         vocab.insert(0, self.PaddingToken())
         vocab.insert(1, self.UnknownToken())
         self.token2code = {token: i for i, token in enumerate(vocab)}
@@ -137,11 +138,11 @@ class TokensEncoder(TransformerMixin, BaseEstimator):
         for i, sentence in enumerate(X):
             codes = [self.token2code.get(token, 1) for token in sentence[:self.max_len]]
             sentence_len = min(len(sentence), self.max_len)
-            res[i,:sentence_len] = np.array(codes)
+            res[i, :sentence_len] = np.array(codes)
         return res
 
     def inverse_transform(self, X):
-        return [[str(self.vocab[token_code]) for token_code in x if token_code!=0] for x in X]
+        return [[str(self.vocab[token_code]) for token_code in x if token_code != 0] for x in X]
 
 
 class ToTensor(TransformerMixin, BaseEstimator):
@@ -173,7 +174,7 @@ class To2DFloatArray(TransformerMixin, BaseEstimator):
 
     def transform(self, X):
         X = np.array(X, dtype=np.object)
-        X[X==''] = np.nan
+        X[X == ''] = np.nan
         return X.astype(np.float32).reshape(len(X), -1)
 
     def inverse_transform(self, X):
