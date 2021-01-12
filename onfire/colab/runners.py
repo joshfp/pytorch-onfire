@@ -127,7 +127,7 @@ class TrainTracker:
             metrics.append(self.valid_loss[-1])
             metrics.extend([metric.value for metric in self.metrics])
         res = default_metrics + metrics
-        return [x if isinstance(x, int) else round(x, decimals) for x in res]
+        return [str(x) if isinstance(x, int) else str(round(x, decimals)) for x in res]
 
     def _process_valid_output(self, valid_output):
         res = defaultdict(list)
