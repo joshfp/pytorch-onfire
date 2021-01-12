@@ -146,18 +146,19 @@ class TextFeature(BaseFeature):
 
 
 class ContinuousFeature(BaseFeature):
-    def __init__(self, key=None, preprocessor=None, imputer=None, scaler=None, log=False, log_auto_scale=True):
+    def __init__(self, key=None, preprocessor=None, imputer=None, scaler=None, log=False, log_auto_scale=True, log_clip_values=False):
         self.key = key
         self.preprocessor = preprocessor
         self.imputer = (imputer or SimpleImputer()) if imputer!=False else None
         self.scaler = (scaler or StandardScaler()) if scaler!=False else None
         self.log = log
         self.log_auto_scale = log_auto_scale
+        self.log_clip_values = log_clip_values
 
         tfms = []
         tfms.append(To2DFloatArray())
         if self.imputer: tfms.append(self.imputer)
-        if self.log: tfms.append(Log(auto_scale=self.log_auto_scale))
+        if self.log: tfms.append(Log(auto_scale=self.log_auto_scale, clip_values=self.log_clip_values))
         if self.scaler: tfms.append(self.scaler)
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
@@ -258,15 +259,16 @@ class MultiLabelTarget(BaseField):
 
 
 class ContinuousTarget(BaseField):
-    def __init__(self, key=None, preprocessor=None, log=False, log_auto_scale=False):
+    def __init__(self, key=None, preprocessor=None, log=False, log_auto_scale=False, log_clip_values=False):
         self.key = key
         self.preprocessor = preprocessor
         self.log = log
         self.log_auto_scale = log_auto_scale
+        self.log_clip_values = log_clip_values
 
         tfms = []
         tfms.append(To2DFloatArray())
-        if self.log: tfms.append(Log(auto_scale=self.log_auto_scale))
+        if self.log: tfms.append(Log(auto_scale=self.log_auto_scale, clip_values=self.log_clip_values))
 
         super().__init__(self.key, self.preprocessor, tfms, dtype=torch.float32)
 
