@@ -226,7 +226,7 @@ class Log(PartialFitBase, TransformerMixin):
     def transform(self, X):
         X = X + self.offset
         if self.clip_values:
-            X = np.clip(X, np.finfo(np.float32).eps)
+            X = np.clip(X, np.finfo(np.float32).eps, None)
         return np.log(X)
 
     @property
