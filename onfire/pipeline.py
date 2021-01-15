@@ -1,12 +1,12 @@
-from sklearn.pipeline import Pipeline, _name_estimators
+from sklearn.pipeline import Pipeline as SKLPipeline, _name_estimators
 from collections import OrderedDict
 
 all = [
-    'OnFirePipeline',
+    'Pipeline',
     'make_pipeline',
 ]
 
-class OnFirePipeline(Pipeline):
+class Pipeline(SKLPipeline):
     def partial_fit(self, X, y=None):
         for i, (name, step) in enumerate(self.steps):
             step.partial_fit(X)
@@ -14,5 +14,6 @@ class OnFirePipeline(Pipeline):
                 X = step.transform(X)
         return self
 
+
 def make_pipeline(*steps):
-    return OnFirePipeline(_name_estimators(steps))
+    return Pipeline(_name_estimators(steps))

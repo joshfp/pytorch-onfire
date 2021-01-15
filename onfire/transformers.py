@@ -2,8 +2,8 @@ import torch
 import numpy as np
 from collections import Counter
 from sklearn.base import TransformerMixin
-from sklearn.impute import SimpleImputer as SklearnSimpleImputer
-from sklearn.preprocessing import FunctionTransformer as SklearnFunctionTransformer
+from sklearn.impute import SimpleImputer as SKLSimpleImputer
+from sklearn.preprocessing import FunctionTransformer as SKLFunctionTransformer
 from sklearn.utils._mask import _get_mask
 from unidecode import unidecode
 from abc import ABC
@@ -237,10 +237,10 @@ class Log(PartialFitBase, TransformerMixin):
         return np.exp(X) - self.offset
 
 
-class SimpleImputer(PartialFitBase, SklearnSimpleImputer):
+class SimpleImputer(PartialFitBase, SKLSimpleImputer):
     def __init__(self, *, missing_values=np.nan, strategy='mean',
                  fill_value=None, verbose=0, copy=True, add_indicator=False):
-        SklearnSimpleImputer.__init__(self,
+        SKLSimpleImputer.__init__(self,
             missing_values=missing_values,
             strategy=strategy,
             fill_value=fill_value,
@@ -261,14 +261,14 @@ class SimpleImputer(PartialFitBase, SklearnSimpleImputer):
 
     def fit(self, X, y=None):
         self._reset(X)
-        SklearnSimpleImputer.fit(self, X, y)
+        SKLSimpleImputer.fit(self, X, y)
         if self.strategy == 'mean':
             mask = _get_mask(X, self.missing_values)
             self._n_non_missing = (~mask).sum(axis=0)
         return self
 
     def partial_fit(self, X, y=None):
-        X = SklearnSimpleImputer._validate_input(self, X, in_fit=True)
+        X = SKLSimpleImputer._validate_input(self, X, in_fit=True)
         super()._fit_indicator(X)
         if not self.initialized:
             self._reset(X)
@@ -329,17 +329,6 @@ class SimpleImputer(PartialFitBase, SklearnSimpleImputer):
         return self
 
 
-class FunctionTransformer(PartialFitBase, SklearnFunctionTransformer):
-    def __init__(self, func=None, inverse_func=None, *, validate=False, accept_sparse=False,
-                 check_inverse=True, kw_args=None, inv_kw_args=None):
-        SklearnFunctionTransformer.__init__(
-            self,
-            func=func,
-            inverse_func=inverse_func,
-            validate=validate,
-            accept_sparse=accept_sparse,
-            check_inverse=check_inverse,
-            kw_args=kw_args,
-            inv_kw_args=inv_kw_args,
-        )
-        PartialFitBase.__init__(self)
+class FunctionTransformer(SKLFunctionTransformer):
+    def partial_fit(self, X, y=None):
+        return self

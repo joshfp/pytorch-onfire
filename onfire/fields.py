@@ -164,7 +164,7 @@ class ContinuousFeature(BaseFeature):
 
     def _fit(self, X, partial):
         super()._fit(X, partial)
-        self.emb_dim = self.transform([X[0]]).shape[1]
+        self.emb_dim = self.transform(X[:1]).shape[1]
         return self
 
     def build_embedder(self):
