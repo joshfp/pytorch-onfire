@@ -210,8 +210,9 @@ class To2DFloatArray(PartialFitBase, TransformerMixin):
 
 
 class Log(PartialFitBase, TransformerMixin):
-    def __init__(self, auto_scale):
+    def __init__(self, auto_scale, clip_values=False):
         self.auto_scale = auto_scale
+        self.clip_values = clip_values
         super().__init__()
 
     def _reset(self, X):
@@ -223,7 +224,10 @@ class Log(PartialFitBase, TransformerMixin):
         return self
 
     def transform(self, X):
-        return np.log(X + self.offset)
+        X = X + self.offset
+        if self.clip_values:
+            X = np.clip(X, np.finfo(np.float32).eps, None)
+        return np.log(X)
 
     @property
     def offset(self):
