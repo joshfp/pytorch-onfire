@@ -92,6 +92,7 @@ class LabelEncoder(PartialFitBase, TransformerMixin):
         return self._vocab if self.is_target else [self.UnknownLabel()] + self._vocab
 
     def category2code(self, x):
+        x = str(x)
         return self._category2code.get(x) if self.is_target else self._category2code.get(x, -1) + 1
 
     def inverse_transform(self, X):
