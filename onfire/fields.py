@@ -255,3 +255,31 @@ class ContinuousTarget(BaseField):
     @property
     def output_dim(self):
         return self.out_dim
+
+class ProyectorFeature():
+    def __init__(self, processor:BaseFeature, key:str):
+        self.projector = Projector(keys=key)
+        self.processor = processor
+
+    def fit(self, X, y=None):
+        self.processor.fit(self.projector.transform(X))
+        return self.processor
+
+    def transform(self, X):
+        projected = self.projector.transform(X)
+        return self.processor.transform(projected)
+
+    def inverse_transform(self, X):
+        unprojected = self.inverse_transform(X)
+        return self.projector.inverse_transform(unprojected)
+
+    def build_embedder(self):
+        return self.processor.build_embedder()
+
+    @property
+    def output_dim(self):
+        self.processor.embedder.output_dim
+
+    @property
+    def embedder(self):
+        return self.processor.embedder
